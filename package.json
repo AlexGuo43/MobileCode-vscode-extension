@@ -1,0 +1,104 @@
+{
+  "name": "mobilecoder-sync",
+  "displayName": "MobileCoder Sync",
+  "description": "Sync your files with MobileCoder mobile app",
+  "version": "1.0.0",
+  "publisher": "mobilecoder",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "mobile",
+    "sync",
+    "code",
+    "editor"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "mobilecoder.signIn",
+        "title": "Sign In with GitHub",
+        "category": "MobileCoder"
+      },
+      {
+        "command": "mobilecoder.signOut",
+        "title": "Sign Out",
+        "category": "MobileCoder"
+      },
+      {
+        "command": "mobilecoder.sync",
+        "title": "Sync Files",
+        "category": "MobileCoder"
+      },
+      {
+        "command": "mobilecoder.downloadFile",
+        "title": "Download from MobileCoder",
+        "category": "MobileCoder"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mobilecoder",
+          "title": "MobileCoder",
+          "icon": "$(device-mobile)"
+        }
+      ]
+    },
+    "views": {
+      "mobilecoder": [
+        {
+          "id": "mobilecoderFiles",
+          "name": "Remote Files",
+          "when": "mobilecoder.authenticated"
+        },
+        {
+          "id": "mobilecoderAuth",
+          "name": "Authentication",
+          "when": "!mobilecoder.authenticated"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "MobileCoder",
+      "properties": {
+        "mobilecoder.syncDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Local directory to sync with MobileCoder (leave empty to use workspace root)"
+        },
+        "mobilecoder.autoSync": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically sync files when they change"
+        },
+        "mobilecoder.syncInterval": {
+          "type": "number",
+          "default": 300,
+          "description": "Auto sync interval in seconds (0 to disable)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^18.x",
+    "@types/vscode": "^1.74.0",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "chokidar": "^3.5.3"
+  }
+}
