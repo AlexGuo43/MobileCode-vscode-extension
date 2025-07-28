@@ -24,7 +24,7 @@
     "commands": [
       {
         "command": "mobilecoder.signIn",
-        "title": "Sign In with GitHub",
+        "title": "Sign In",
         "category": "MobileCoder"
       },
       {

@@ -30,8 +30,19 @@ export class RemoteFilesProvider implements vscode.TreeDataProvider<SyncFile> {
         const item = new vscode.TreeItem(element.filename, vscode.TreeItemCollapsibleState.None);
         
         item.id = element.id;
-        item.tooltip = `${element.filename}\nLast updated: ${new Date(element.updated_at).toLocaleString()}`;
-        item.description = new Date(element.updated_at).toLocaleDateString();
+        const date = new Date(element.updated_at);
+        const isValidDate = !isNaN(date.getTime());
+        
+        const formatDate = (date: Date) => {
+            return date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric' 
+            });
+        };
+        
+        item.tooltip = `${element.filename}\nLast updated: ${isValidDate ? date.toLocaleString() : 'Unknown'}`;
+        item.description = isValidDate ? formatDate(date) : 'Invalid date';
         
         // Set icon based on file extension
         item.iconPath = this.getFileIcon(element.filename);

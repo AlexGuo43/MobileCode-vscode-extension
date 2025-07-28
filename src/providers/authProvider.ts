@@ -50,7 +50,7 @@ export class AuthProvider implements vscode.TreeDataProvider<AuthItem> {
             const user = await this.authService.getCurrentUser();
             return [
                 {
-                    label: `Signed in as ${user?.name || 'Unknown'}`,
+                    label: `Signed in as ${user?.email || 'Unknown'}`,
                     icon: new vscode.ThemeIcon('account')
                 },
                 {
@@ -62,7 +62,7 @@ export class AuthProvider implements vscode.TreeDataProvider<AuthItem> {
         } else {
             return [
                 {
-                    label: 'Sign in with GitHub to sync files',
+                    label: 'Sign in to MobileCode to sync files',
                     icon: new vscode.ThemeIcon('info')
                 },
                 {

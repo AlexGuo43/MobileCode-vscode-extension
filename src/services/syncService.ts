@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import axios from 'axios';
 import { AuthService } from './authService';
 
@@ -20,7 +21,7 @@ export interface SyncResults {
 }
 
 export class SyncService {
-    private static readonly GIST_API_URL = 'https://api.github.com/gists';
+    private static readonly API_BASE_URL = 'https://backend-production-a87d.up.railway.app/api';
     private static readonly SYNC_METADATA_FILE = '.mobilecoder-sync.json';
 
     constructor(private authService: AuthService) {}
@@ -78,7 +79,7 @@ export class SyncService {
             if (gistId) {
                 // File exists remotely, check which is newer
                 const localStat = fs.statSync(localFilePath);
-                const remoteStat = await this.getRemoteFileStats(gistId, accessToken);
+                const remoteStat = await this.getRemoteFileStats(relativePath, accessToken);
 
                 if (remoteStat && localStat.mtime) {
                     const localTime = localStat.mtime.getTime();
@@ -86,10 +87,10 @@ export class SyncService {
 
                     if (remoteTime > localTime) {
                         // Remote is newer, download
-                        return await this.downloadFile(gistId, localFilePath);
+                        return await this.downloadFile(relativePath, localFilePath);
                     } else {
                         // Local is newer, upload
-                        return await this.updateRemoteFile(gistId, localFilePath, filename, accessToken) !== null;
+                        return await this.updateRemoteFile(relativePath, localFilePath, filename, accessToken) !== null;
                     }
                 }
             } else {
@@ -108,30 +109,25 @@ export class SyncService {
     async uploadFile(localFilePath: string, filename: string, relativePath: string, accessToken: string): Promise<string | null> {
         try {
             const content = fs.readFileSync(localFilePath, 'utf8');
-            const language = this.getLanguageFromFilename(filename);
-
-            const gistData = {
-                description: `MobileCoder file: ${filename}`,
-                public: false,
-                files: {
-                    [filename]: {
-                        content: content
-                    }
-                }
+            const stat = fs.statSync(localFilePath);
+            
+            const fileData = {
+                filename: relativePath,
+                content: content,
+                checksum: this.calculateChecksum(content),
+                lastModified: stat.mtime.toISOString()
             };
 
-            const response = await axios.post(SyncService.GIST_API_URL, gistData, {
+            const response = await axios.post(`${SyncService.API_BASE_URL}/sync/files`, fileData, {
                 headers: {
-                    'Authorization': `token ${accessToken}`,
-                    'Accept': 'application/vnd.github.v3+json',
+                    'Authorization': `Bearer ${accessToken}`,
                     'Content-Type': 'application/json'
                 }
             });
 
-            if (response.status === 201) {
-                const gist = response.data;
-                await this.updateSyncMetadata(relativePath, gist.id);
-                return gist.id;
+            if (response.data.success) {
+                await this.updateSyncMetadata(relativePath, relativePath);
+                return relativePath;
             }
 
             return null;
@@ -141,29 +137,21 @@ export class SyncService {
         }
     }
 
-    async downloadFile(gistId: string, localFilePath: string): Promise<boolean> {
+    async downloadFile(filename: string, localFilePath: string): Promise<boolean> {
         try {
             const accessToken = await this.authService.getAccessToken();
             if (!accessToken) {
                 throw new Error('Not authenticated');
             }
 
-            const response = await axios.get(`${SyncService.GIST_API_URL}/${gistId}`, {
+            const response = await axios.get(`${SyncService.API_BASE_URL}/sync/files/${encodeURIComponent(filename)}`, {
                 headers: {
-                    'Authorization': `token ${accessToken}`,
-                    'Accept': 'application/vnd.github.v3+json'
+                    'Authorization': `Bearer ${accessToken}`
                 }
             });
 
-            if (response.status === 200) {
-                const gist = response.data;
-                const files = Object.values(gist.files) as any[];
-                
-                if (files.length === 0) {
-                    throw new Error('No files in gist');
-                }
-
-                const file = files[0];
+            if (response.data.success) {
+                const fileData = response.data.data;
                 
                 // Ensure directory exists
                 const dir = path.dirname(localFilePath);
@@ -171,7 +159,7 @@ export class SyncService {
                     fs.mkdirSync(dir, { recursive: true });
                 }
 
-                fs.writeFileSync(localFilePath, file.content, 'utf8');
+                fs.writeFileSync(localFilePath, fileData.content, 'utf8');
                 return true;
             }
 
@@ -189,32 +177,24 @@ export class SyncService {
                 return [];
             }
 
-            const response = await axios.get(SyncService.GIST_API_URL, {
+            const response = await axios.get(`${SyncService.API_BASE_URL}/sync/files`, {
                 headers: {
-                    'Authorization': `token ${accessToken}`,
-                    'Accept': 'application/vnd.github.v3+json'
+                    'Authorization': `Bearer ${accessToken}`
                 }
             });
 
-            if (response.status === 200) {
-                const gists = response.data;
+            if (response.data.success) {
+                const files = response.data.data;
                 
-                return gists
-                    .filter((gist: any) => gist.description?.startsWith('MobileCoder file:'))
-                    .map((gist: any) => {
-                        const files = Object.values(gist.files) as any[];
-                        const file = files[0];
-                        
-                        return {
-                            id: gist.id,
-                            filename: file.filename,
-                            content: file.content || '',
-                            language: file.language || 'text',
-                            description: gist.description,
-                            updated_at: gist.updated_at,
-                            public: gist.public
-                        };
-                    });
+                return files.map((file: any) => ({
+                    id: file.filename,
+                    filename: file.filename,
+                    content: file.content || '',
+                    language: this.getLanguageFromFilename(file.filename),
+                    description: `MobileCoder file: ${file.filename}`,
+                    updated_at: file.last_modified,
+                    public: false
+                }));
             }
 
             return [];
@@ -224,28 +204,27 @@ export class SyncService {
         }
     }
 
-    private async updateRemoteFile(gistId: string, localFilePath: string, filename: string, accessToken: string): Promise<string | null> {
+    private async updateRemoteFile(filename: string, localFilePath: string, displayName: string, accessToken: string): Promise<string | null> {
         try {
             const content = fs.readFileSync(localFilePath, 'utf8');
+            const stat = fs.statSync(localFilePath);
 
             const updateData = {
-                files: {
-                    [filename]: {
-                        content: content
-                    }
-                }
+                filename: filename,
+                content: content,
+                checksum: this.calculateChecksum(content),
+                lastModified: stat.mtime.toISOString()
             };
 
-            const response = await axios.patch(`${SyncService.GIST_API_URL}/${gistId}`, updateData, {
+            const response = await axios.post(`${SyncService.API_BASE_URL}/sync/files`, updateData, {
                 headers: {
-                    'Authorization': `token ${accessToken}`,
-                    'Accept': 'application/vnd.github.v3+json',
+                    'Authorization': `Bearer ${accessToken}`,
                     'Content-Type': 'application/json'
                 }
             });
 
-            if (response.status === 200) {
-                return gistId;
+            if (response.data.success) {
+                return filename;
             }
 
             return null;
@@ -255,18 +234,17 @@ export class SyncService {
         }
     }
 
-    private async getRemoteFileStats(gistId: string, accessToken: string): Promise<{ updated_at: string } | null> {
+    private async getRemoteFileStats(filename: string, accessToken: string): Promise<{ updated_at: string } | null> {
         try {
-            const response = await axios.get(`${SyncService.GIST_API_URL}/${gistId}`, {
+            const response = await axios.get(`${SyncService.API_BASE_URL}/sync/files/${encodeURIComponent(filename)}`, {
                 headers: {
-                    'Authorization': `token ${accessToken}`,
-                    'Accept': 'application/vnd.github.v3+json'
+                    'Authorization': `Bearer ${accessToken}`
                 }
             });
 
-            if (response.status === 200) {
-                const gist = response.data;
-                return { updated_at: gist.updated_at };
+            if (response.data.success) {
+                const fileData = response.data.data;
+                return { updated_at: fileData.last_modified };
             }
 
             return null;
@@ -370,5 +348,9 @@ export class SyncService {
             '.h': 'c'
         };
         return langMap[ext] || 'text';
+    }
+
+    private calculateChecksum(content: string): string {
+        return crypto.createHash('md5').update(content).digest('hex');
     }
 }

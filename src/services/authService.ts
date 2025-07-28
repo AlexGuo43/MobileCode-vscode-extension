@@ -3,16 +3,15 @@ import axios from 'axios';
 
 export interface AuthUser {
     id: string;
-    login: string;
-    name: string;
     email: string;
-    avatar_url: string;
+    deviceName: string;
     access_token: string;
 }
 
 export class AuthService {
-    private static readonly ACCESS_TOKEN_KEY = 'mobilecoder.github_access_token';
-    private static readonly USER_DATA_KEY = 'mobilecoder.github_user_data';
+    private static readonly API_BASE_URL = 'https://backend-production-a87d.up.railway.app/api';
+    private static readonly ACCESS_TOKEN_KEY = 'mobilecoder.jwt_access_token';
+    private static readonly USER_DATA_KEY = 'mobilecoder.user_data';
 
     private authStateListeners: ((authenticated: boolean) => void)[] = [];
 
@@ -20,98 +19,163 @@ export class AuthService {
 
     async signIn(): Promise<boolean> {
         try {
-            // Use GitHub's device flow for OAuth
-            const deviceResponse = await axios.post('https://github.com/login/device/code', {
-                client_id: process.env.GITHUB_CLIENT_ID || 'your-github-client-id', // You'll need to replace this
-                scope: 'user:email gist'
-            }, {
-                headers: {
-                    'Accept': 'application/json'
+            // Get user credentials via input boxes
+            const email = await vscode.window.showInputBox({
+                prompt: 'Enter your email address',
+                placeHolder: 'email@example.com',
+                validateInput: (value) => {
+                    if (!value || !value.includes('@')) {
+                        return 'Please enter a valid email address';
+                    }
+                    return null;
                 }
             });
 
-            const { device_code, user_code, verification_uri, expires_in, interval } = deviceResponse.data;
-
-            // Show user code and open verification URL
-            const action = await vscode.window.showInformationMessage(
-                `To sign in to GitHub, use a web browser to open the page ${verification_uri} and enter the code ${user_code}`,
-                'Open GitHub',
-                'I\'ve entered the code'
-            );
-
-            if (action === 'Open GitHub') {
-                vscode.env.openExternal(vscode.Uri.parse(verification_uri));
+            if (!email) {
+                return false;
             }
 
-            // Poll for access token
-            return await this.pollForAccessToken(device_code, interval, expires_in);
-        } catch (error) {
+            const password = await vscode.window.showInputBox({
+                prompt: 'Enter your password',
+                password: true
+            });
+
+            if (!password) {
+                return false;
+            }
+
+            const deviceName = await vscode.window.showInputBox({
+                prompt: 'Enter a name for this device',
+                placeHolder: 'VS Code Extension',
+                value: 'VS Code Extension'
+            });
+
+            if (!deviceName) {
+                return false;
+            }
+
+            // Login with credentials
+            const response = await axios.post(`${AuthService.API_BASE_URL}/auth/login`, {
+                email,
+                password,
+                device_name: deviceName,
+                device_type: "desktop",
+                platform: "vscode"
+            }, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.data.success) {
+                const { token, user } = response.data.data;
+                const userData: AuthUser = {
+                    id: user.id,
+                    email: user.email,
+                    deviceName: deviceName,
+                    access_token: token
+                };
+
+                // Store auth data
+                await this.context.secrets.store(AuthService.ACCESS_TOKEN_KEY, token);
+                await this.context.globalState.update(AuthService.USER_DATA_KEY, userData);
+
+                this.notifyAuthStateChanged(true);
+                return true;
+            }
+
+            vscode.window.showErrorMessage('Login failed: ' + (response.data.message || 'Unknown error'));
+            return false;
+        } catch (error: any) {
             console.error('Sign in error:', error);
+            const message = error.response?.data?.message || error.message || 'Login failed';
+            vscode.window.showErrorMessage('Login failed: ' + message);
             return false;
         }
     }
 
-    private async pollForAccessToken(deviceCode: string, interval: number, expiresIn: number): Promise<boolean> {
-        const startTime = Date.now();
-        const maxTime = expiresIn * 1000;
-
-        while (Date.now() - startTime < maxTime) {
-            try {
-                const tokenResponse = await axios.post('https://github.com/login/oauth/access_token', {
-                    client_id: process.env.GITHUB_CLIENT_ID || 'your-github-client-id',
-                    device_code: deviceCode,
-                    grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
-                }, {
-                    headers: {
-                        'Accept': 'application/json'
+    async register(): Promise<boolean> {
+        try {
+            // Get user credentials via input boxes
+            const email = await vscode.window.showInputBox({
+                prompt: 'Enter your email address',
+                placeHolder: 'email@example.com',
+                validateInput: (value) => {
+                    if (!value || !value.includes('@')) {
+                        return 'Please enter a valid email address';
                     }
-                });
-
-                const { access_token, error } = tokenResponse.data;
-
-                if (access_token) {
-                    // Get user data
-                    const userResponse = await axios.get('https://api.github.com/user', {
-                        headers: {
-                            'Authorization': `token ${access_token}`,
-                            'Accept': 'application/vnd.github.v3+json'
-                        }
-                    });
-
-                    const userData = userResponse.data;
-                    const user: AuthUser = {
-                        id: userData.id.toString(),
-                        login: userData.login,
-                        name: userData.name || userData.login,
-                        email: userData.email,
-                        avatar_url: userData.avatar_url,
-                        access_token: access_token
-                    };
-
-                    // Store auth data
-                    await this.context.secrets.store(AuthService.ACCESS_TOKEN_KEY, access_token);
-                    await this.context.globalState.update(AuthService.USER_DATA_KEY, user);
-
-                    this.notifyAuthStateChanged(true);
-                    return true;
-                } else if (error === 'authorization_pending') {
-                    // Continue polling
-                    await new Promise(resolve => setTimeout(resolve, interval * 1000));
-                } else if (error === 'slow_down') {
-                    // Increase interval
-                    interval += 5;
-                    await new Promise(resolve => setTimeout(resolve, interval * 1000));
-                } else {
-                    // Other errors (expired_token, unsupported_grant_type, etc.)
-                    break;
+                    return null;
                 }
-            } catch (error) {
-                console.error('Token polling error:', error);
-                break;
-            }
-        }
+            });
 
-        return false;
+            if (!email) {
+                return false;
+            }
+
+            const password = await vscode.window.showInputBox({
+                prompt: 'Enter a password',
+                password: true,
+                validateInput: (value) => {
+                    if (!value || value.length < 6) {
+                        return 'Password must be at least 6 characters long';
+                    }
+                    return null;
+                }
+            });
+
+            if (!password) {
+                return false;
+            }
+
+            const deviceName = await vscode.window.showInputBox({
+                prompt: 'Enter a name for this device',
+                placeHolder: 'VS Code Extension',
+                value: 'VS Code Extension'
+            });
+
+            if (!deviceName) {
+                return false;
+            }
+
+            // Register new user
+            const response = await axios.post(`${AuthService.API_BASE_URL}/auth/register`, {
+                email,
+                password,
+                device_name: deviceName,
+                device_type: "desktop",
+                platform: "vscode"
+            }, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.data.success) {
+                const { token, user } = response.data.data;
+                const userData: AuthUser = {
+                    id: user.id,
+                    email: user.email,
+                    deviceName: deviceName,
+                    access_token: token
+                };
+
+                // Store auth data
+                await this.context.secrets.store(AuthService.ACCESS_TOKEN_KEY, token);
+                await this.context.globalState.update(AuthService.USER_DATA_KEY, userData);
+
+                this.notifyAuthStateChanged(true);
+                vscode.window.showInformationMessage('Registration successful!');
+                return true;
+            }
+
+            vscode.window.showErrorMessage('Registration failed: ' + (response.data.message || 'Unknown error'));
+            return false;
+        } catch (error: any) {
+            console.error('Registration error:', error);
+            const message = error.response?.data?.message || error.message || 'Registration failed';
+            vscode.window.showErrorMessage('Registration failed: ' + message);
+            return false;
+        }
     }
 
     async signOut(): Promise<void> {
@@ -132,14 +196,13 @@ export class AuthService {
             }
 
             // Verify token is still valid
-            const response = await axios.get('https://api.github.com/user', {
+            const response = await axios.get(`${AuthService.API_BASE_URL}/auth/me`, {
                 headers: {
-                    'Authorization': `token ${accessToken}`,
-                    'Accept': 'application/vnd.github.v3+json'
+                    'Authorization': `Bearer ${accessToken}`
                 }
             });
 
-            return response.status === 200;
+            return response.data.success;
         } catch (error) {
             // Token is invalid, clear stored data
             await this.signOut();

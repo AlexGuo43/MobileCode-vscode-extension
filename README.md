@@ -5,7 +5,7 @@ Sync your code files seamlessly between VSCode and the MobileCoder mobile app.
 ## Features
 
 - **Cross-device sync**: Sync files between VSCode and MobileCoder mobile app
-- **GitHub OAuth**: Secure authentication using your GitHub account
+- **Secure Authentication**: Email/password authentication with JWT tokens
 - **Automatic sync**: Files are automatically synced when changed
 - **File watching**: Real-time monitoring of file changes
 - **Remote file management**: Browse and download files from your mobile device
@@ -36,24 +36,18 @@ Sync your code files seamlessly between VSCode and the MobileCoder mobile app.
 
 ## Setup
 
-1. **Create GitHub OAuth App**:
-   - Go to [GitHub Developer Settings](https://github.com/settings/developers)
-   - Create a new OAuth App with callback URL: `mobilecoder://auth`
-   - Copy the Client ID
+1. **Install the extension** (see Installation section above)
 
-2. **Configure the extension**:
-   - Update the Client ID in `src/services/authService.ts`
-   - Recompile with `npm run compile`
-
-3. **Sign in**:
+2. **Sign in**:
    - Open the MobileCoder panel in VSCode
-   - Click "Sign In" and follow the device flow instructions
+   - Click "Sign In" and enter your MobileCode credentials
+   - Or use "Register" if you need to create a new account
 
 ## Usage
 
 ### Commands
 
-- `MobileCoder: Sign In with GitHub` - Authenticate with GitHub
+- `MobileCoder: Sign In` - Authenticate with your MobileCode account
 - `MobileCoder: Sign Out` - Sign out and clear stored credentials
 - `MobileCoder: Sync Files` - Manually sync all files
 - `MobileCoder: Download from MobileCoder` - Download a specific remote file
@@ -72,6 +66,7 @@ Sync your code files seamlessly between VSCode and the MobileCoder mobile app.
 ## File Types Supported
 
 The extension syncs the following file types:
+
 - JavaScript/TypeScript: `.js`, `.ts`, `.jsx`, `.tsx`
 - Python: `.py`
 - Java: `.java`
@@ -82,11 +77,11 @@ The extension syncs the following file types:
 
 ## How It Works
 
-1. Files are stored as private GitHub Gists
-2. Each file gets its own Gist for granular sync control
+1. Files are synced to your MobileCode backend account
+2. Each file is stored with checksum verification for data integrity
 3. Timestamp comparison resolves conflicts automatically
 4. Real-time file watching enables automatic syncing
-5. Metadata tracking ensures efficient sync operations
+5. JWT authentication ensures secure communication
 
 ## Development
 
@@ -123,4 +118,4 @@ This extension is part of the MobileCoder project. See the main repository for l
 
 ## Support
 
-For issues and feature requests, please visit the [MobileCoder GitHub repository](https://github.com/yourusername/mobilecoder).
+For issues and feature requests, please visit the [MobileCoder GitHub repository](https://github.com/AlexGuo43/MobileCode).
