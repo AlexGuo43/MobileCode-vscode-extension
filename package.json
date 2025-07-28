@@ -3,7 +3,8 @@
   "displayName": "MobileCoder Sync",
   "description": "Sync your files with MobileCoder mobile app",
   "version": "1.0.0",
-  "publisher": "mobilecoder",
+  "publisher": "MobileCoder",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.74.0"
   },
