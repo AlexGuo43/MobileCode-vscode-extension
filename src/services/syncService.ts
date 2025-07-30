@@ -353,4 +353,90 @@ export class SyncService {
     private calculateChecksum(content: string): string {
         return crypto.createHash('md5').update(content).digest('hex');
     }
+
+    private getFileTypeFromFilename(filename: string): string {
+        const ext = path.extname(filename).toLowerCase();
+        const typeMap: { [key: string]: string } = {
+            '.py': 'python',
+            '.js': 'javascript',
+            '.ts': 'typescript',
+            '.jsx': 'javascript',
+            '.tsx': 'typescript',
+            '.json': 'json',
+            '.md': 'markdown',
+            '.css': 'css',
+            '.html': 'html',
+            '.txt': 'text',
+            '.java': 'java',
+            '.cpp': 'cpp',
+            '.c': 'c',
+            '.h': 'c'
+        };
+        return typeMap[ext] || 'text';
+    }
+
+    async updateRemoteFileContent(filename: string, content: string): Promise<boolean> {
+        try {
+            console.log('updateRemoteFileContent called with:', {
+                filename,
+                contentLength: content.length
+            });
+            
+            const accessToken = await this.authService.getAccessToken();
+            if (!accessToken) {
+                console.error('No access token available');
+                throw new Error('Not authenticated');
+            }
+
+            const updateData = {
+                filename: filename,
+                content: content,
+                checksum: this.calculateChecksum(content),
+                last_modified: new Date().toISOString(),
+                file_type: this.getFileTypeFromFilename(filename)
+            };
+
+            console.log('Sending update request to API:', {
+                url: `${SyncService.API_BASE_URL}/sync/files`,
+                filename: updateData.filename,
+                contentLength: updateData.content.length,
+                checksum: updateData.checksum
+            });
+
+            const response = await axios.post(`${SyncService.API_BASE_URL}/sync/files`, updateData, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            console.log('API response:', {
+                status: response.status,
+                success: response.data?.success,
+                data: response.data
+            });
+
+            return response.data.success;
+        } catch (error) {
+            console.error('Update remote file content error:', error);
+            if (axios.isAxiosError(error)) {
+                console.error('Axios error details:', {
+                    status: error.response?.status,
+                    statusText: error.response?.statusText,
+                    data: error.response?.data,
+                    message: error.message,
+                    config: {
+                        url: error.config?.url,
+                        method: error.config?.method,
+                        data: error.config?.data
+                    }
+                });
+                // Log the full response if available
+                if (error.response?.data) {
+                    console.error('API error response:', JSON.stringify(error.response.data, null, 2));
+                }
+            }
+            return false;
+        }
+    }
 }

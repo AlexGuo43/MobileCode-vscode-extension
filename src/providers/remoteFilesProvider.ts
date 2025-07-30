@@ -50,10 +50,10 @@ export class RemoteFilesProvider implements vscode.TreeDataProvider<SyncFile> {
         // Add context menu
         item.contextValue = 'mobilecoderFile';
         
-        // Add command to download file
+        // Add command to open file in viewer
         item.command = {
-            command: 'mobilecoder.downloadFile',
-            title: 'Download File',
+            command: 'mobilecoder.openFileInViewer',
+            title: 'Open File',
             arguments: [element]
         };
 

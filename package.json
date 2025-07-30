@@ -39,8 +39,13 @@
         "category": "MobileCoder"
       },
       {
+        "command": "mobilecoder.openFileInViewer",
+        "title": "Open in Viewer",
+        "category": "MobileCoder"
+      },
+      {
         "command": "mobilecoder.downloadFile",
-        "title": "Download from MobileCoder",
+        "title": "Download to Workspace",
         "category": "MobileCoder"
       }
     ],
@@ -86,11 +91,26 @@
           "description": "Auto sync interval in seconds (0 to disable)"
         }
       }
+    },
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "mobilecoder.openFileInViewer",
+          "when": "view == mobilecoderFiles && viewItem == mobilecoderFile",
+          "group": "1_open@1"
+        },
+        {
+          "command": "mobilecoder.downloadFile",
+          "when": "view == mobilecoderFiles && viewItem == mobilecoderFile",
+          "group": "1_open@2"
+        }
+      ]
     }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && npm run copy-webview",
+    "copy-webview": "mkdir -p out/webview && cp src/webview/editor.js out/webview/ && cp src/webview/editor.css out/webview/",
     "watch": "tsc -watch -p ./"
   },
   "devDependencies": {

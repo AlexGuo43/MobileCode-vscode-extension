@@ -1,0 +1,120 @@
+body {
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    color: var(--vscode-foreground);
+    background-color: var(--vscode-editor-background);
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    background-color: var(--vscode-panel-background);
+    flex-shrink: 0;
+}
+
+.header h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+#saveBtn {
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    padding: 6px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: var(--vscode-font-family);
+}
+
+#saveBtn:hover:not(:disabled) {
+    background-color: var(--vscode-button-hoverBackground);
+}
+
+#saveBtn:disabled {
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    cursor: not-allowed;
+}
+
+#lastModified {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.editor-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+#editor {
+    flex: 1;
+    width: 100%;
+    border: none;
+    outline: none;
+    resize: none;
+    padding: 16px;
+    font-family: var(--vscode-editor-font-family), 'Courier New', monospace;
+    font-size: var(--vscode-editor-font-size);
+    line-height: var(--vscode-editor-line-height);
+    color: var(--vscode-editor-foreground);
+    background-color: var(--vscode-editor-background);
+    min-height: 400px;
+}
+
+#editor:focus {
+    outline: none;
+}
+
+/* Language-specific styling hints */
+#editor[data-language="javascript"],
+#editor[data-language="typescript"] {
+    tab-size: 2;
+}
+
+#editor[data-language="python"] {
+    tab-size: 4;
+}
+
+#editor[data-language="java"],
+#editor[data-language="cpp"],
+#editor[data-language="c"] {
+    tab-size: 4;
+}
+
+/* Scrollbar styling */
+#editor::-webkit-scrollbar {
+    width: 14px;
+}
+
+#editor::-webkit-scrollbar-track {
+    background: var(--vscode-scrollbarSlider-background);
+}
+
+#editor::-webkit-scrollbar-thumb {
+    background: var(--vscode-scrollbarSlider-background);
+    border-radius: 7px;
+}
+
+#editor::-webkit-scrollbar-thumb:hover {
+    background: var(--vscode-scrollbarSlider-hoverBackground);
+}

@@ -4,6 +4,7 @@ import { SyncService } from './services/syncService';
 import { FileWatcher } from './services/fileWatcher';
 import { RemoteFilesProvider } from './providers/remoteFilesProvider';
 import { AuthProvider } from './providers/authProvider';
+import { RemoteFileSystemProvider } from './providers/remoteFileSystemProvider';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('MobileCoder extension is now active!');
@@ -14,6 +15,10 @@ export function activate(context: vscode.ExtensionContext) {
     
     const remoteFilesProvider = new RemoteFilesProvider(syncService);
     const authProvider = new AuthProvider(authService);
+    
+    // Register file system provider
+    const fileSystemProvider = new RemoteFileSystemProvider(syncService);
+    const fileSystemRegistration = vscode.workspace.registerFileSystemProvider('mobilecoder-remote', fileSystemProvider);
 
     // Register tree data providers
     vscode.window.createTreeView('mobilecoderFiles', {
@@ -30,6 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.executeCommand('setContext', 'mobilecoder.authenticated', authenticated);
         if (authenticated) {
             remoteFilesProvider.refresh();
+            fileSystemProvider.refreshCache();
             fileWatcher.start();
         } else {
             fileWatcher.stop();
@@ -92,6 +98,29 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    const openFileInViewerCommand = vscode.commands.registerCommand('mobilecoder.openFileInViewer', async (item: any) => {
+        try {
+            const isAuthenticated = await authService.isAuthenticated();
+            if (!isAuthenticated) {
+                vscode.window.showWarningMessage('Please sign in first to view files.');
+                return;
+            }
+
+            // Refresh the file system cache to ensure we have the latest content
+            await fileSystemProvider.refreshCache();
+
+            // Create a virtual URI for the remote file
+            const uri = vscode.Uri.parse(`mobilecoder-remote://${item.id}/${item.filename}`);
+            
+            // Open the file with VS Code's native text editor
+            const document = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(document);
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to open file: ${error}`);
+        }
+    });
+
+    // Keep the download command for context menu
     const downloadFileCommand = vscode.commands.registerCommand('mobilecoder.downloadFile', async (item: any) => {
         try {
             const isAuthenticated = await authService.isAuthenticated();
@@ -127,6 +156,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.executeCommand('setContext', 'mobilecoder.authenticated', authenticated);
         if (authenticated) {
             remoteFilesProvider.refresh();
+            fileSystemProvider.refreshCache();
             fileWatcher.start();
         }
     });
@@ -136,7 +166,9 @@ export function activate(context: vscode.ExtensionContext) {
         signInCommand,
         signOutCommand,
         syncCommand,
+        openFileInViewerCommand,
         downloadFileCommand,
+        fileSystemRegistration,
         fileWatcher
     );
 }
