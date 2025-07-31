@@ -2,7 +2,7 @@
   "name": "mobilecoder-sync",
   "displayName": "MobileCoder Sync",
   "description": "Sync your files with MobileCoder mobile app",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "publisher": "MobileCoder",
   "icon": "icon.png",
   "engines": {
@@ -46,6 +46,12 @@
       {
         "command": "mobilecoder.downloadFile",
         "title": "Download to Workspace",
+        "category": "MobileCoder"
+      },
+      {
+        "command": "mobilecoder.refreshFiles",
+        "title": "Refresh",
+        "icon": "$(refresh)",
         "category": "MobileCoder"
       }
     ],
@@ -93,6 +99,13 @@
       }
     },
     "menus": {
+      "view/title": [
+        {
+          "command": "mobilecoder.refreshFiles",
+          "when": "view == mobilecoderFiles",
+          "group": "navigation"
+        }
+      ],
       "view/item/context": [
         {
           "command": "mobilecoder.openFileInViewer",

@@ -120,6 +120,30 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    const refreshFilesCommand = vscode.commands.registerCommand('mobilecoder.refreshFiles', async () => {
+        try {
+            const isAuthenticated = await authService.isAuthenticated();
+            if (!isAuthenticated) {
+                vscode.window.showWarningMessage('Please sign in first to refresh files.');
+                return;
+            }
+
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: 'Refreshing remote files...',
+                cancellable: false
+            }, async (progress) => {
+                // Refresh both the tree view and file system cache
+                remoteFilesProvider.refresh();
+                await fileSystemProvider.refreshCache();
+            });
+
+            vscode.window.showInformationMessage('Remote files refreshed');
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to refresh files: ${error}`);
+        }
+    });
+
     // Keep the download command for context menu
     const downloadFileCommand = vscode.commands.registerCommand('mobilecoder.downloadFile', async (item: any) => {
         try {
@@ -167,6 +191,7 @@ export function activate(context: vscode.ExtensionContext) {
         signOutCommand,
         syncCommand,
         openFileInViewerCommand,
+        refreshFilesCommand,
         downloadFileCommand,
         fileSystemRegistration,
         fileWatcher
